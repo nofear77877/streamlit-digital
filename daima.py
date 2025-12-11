@@ -2,12 +2,13 @@ import streamlit as st
 import pandas as pd
 import os
 import warnings
-import matplotlib.pyplot as plt  # 新增：导入绘图库
-import seaborn as sns  # 新增：导入seaborn美化图表
+import matplotlib.pyplot as plt  # 导入绘图库
+import seaborn as sns  # 导入seaborn美化图表
 warnings.filterwarnings('ignore')
 
-# 设置matplotlib中文字体
+# 全局设置matplotlib中文字体（基础配置）
 plt.rcParams["font.family"] = ["SimHei", "WenQuanYi Micro Hei", "Heiti TC"]
+plt.rcParams["axes.unicode_minus"] = False  # 解决负号显示问题
 sns.set_style("whitegrid")
 
 # ===================== 页面基础配置 =====================
@@ -86,7 +87,7 @@ def load_basic_css():
 @st.cache(ttl=3600, show_spinner="正在加载数据...", suppress_st_warning=True)
 def load_data():
     try:
-        # 文件路径（已修改为相对路径）
+        # 文件路径（相对路径，与代码文件同目录）
         file_path = '1999-2023年数字化转型指数汇总.csv' 
         
         if not os.path.exists(file_path):
@@ -159,8 +160,11 @@ def search_data(df, search_input, search_type, selected_year):
         st.error(f"搜索出错：{str(e)}")
         return pd.DataFrame()
 
-# ===================== 新增：绘制趋势图函数 =====================
+# ===================== 绘制趋势图函数（已修复中文显示） =====================
 def plot_trend_chart(result_df):
+    # 强制设置当前图表的中文字体（双重保障）
+    plt.rcParams["font.family"] = ["SimHei", "WenQuanYi Micro Hei", "Heiti TC"]
+    
     # 如果查询结果包含多家公司，按公司分组绘图
     companies = result_df['企业名称'].unique()
     plt.figure(figsize=(12, 6))
@@ -176,15 +180,25 @@ def plot_trend_chart(result_df):
             linewidth=2
         )
     
-    plt.title('数字化转型指数趋势（1999-2023）', fontsize=15)
-    plt.xlabel('年份', fontsize=12)
-    plt.ylabel('数字化转型指数', fontsize=12)
+    # 标题和标签明确指定中文字体
+    plt.title('数字化转型指数趋势（1999-2023）', fontsize=15, fontproperties="SimHei")
+    plt.xlabel('年份', fontsize=12, fontproperties="SimHei")
+    plt.ylabel('数字化转型指数', fontsize=12, fontproperties="SimHei")
     plt.xticks(rotation=45)
-    plt.legend(title='企业名称', bbox_to_anchor=(1.05, 1), loc='upper left')  # 图例放在右侧
-    plt.tight_layout()  # 自动调整布局
+    
+    # 图例设置中文字体
+    plt.legend(
+        title='企业名称', 
+        bbox_to_anchor=(1.05, 1), 
+        loc='upper left',
+        prop={"family": ["SimHei", "WenQuanYi Micro Hei", "Heiti TC"]},  # 图例文字字体
+        title_fontproperties="SimHei"  # 图例标题字体
+    )
+    
+    plt.tight_layout()  # 自动调整布局，避免文字被截断
     return plt
 
-# ===================== 结果展示函数（已添加图表展示） =====================
+# ===================== 结果展示函数 =====================
 def display_results(result_df, search_input, selected_year):
     if result_df.empty:
         st.warning("未找到匹配数据！示例：600008（首创股份）")
@@ -205,7 +219,7 @@ def display_results(result_df, search_input, selected_year):
     with col3:
         st.metric("最低指数", f"{result_df['数字化转型指数'].min():.2f}")
     
-    # 新增：显示趋势折线图（仅当查询全部年份时显示，单一年份无趋势）
+    # 显示趋势折线图（仅当查询全部年份时）
     if selected_year == "全部年份":
         st.subheader("📈 数字化转型指数趋势图")
         fig = plot_trend_chart(result_df)
