@@ -2,7 +2,13 @@ import streamlit as st
 import pandas as pd
 import os
 import warnings
+import matplotlib.pyplot as plt  # 新增：导入绘图库
+import seaborn as sns  # 新增：导入seaborn美化图表
 warnings.filterwarnings('ignore')
+
+# 设置matplotlib中文字体
+plt.rcParams["font.family"] = ["SimHei", "WenQuanYi Micro Hei", "Heiti TC"]
+sns.set_style("whitegrid")
 
 # ===================== 页面基础配置 =====================
 st.set_page_config(
@@ -80,7 +86,7 @@ def load_basic_css():
 @st.cache(ttl=3600, show_spinner="正在加载数据...", suppress_st_warning=True)
 def load_data():
     try:
-        # ========== 请修改为你的文件实际路径 ==========
+        # 文件路径（已修改为相对路径）
         file_path = '1999-2023年数字化转型指数汇总.csv' 
         
         if not os.path.exists(file_path):
@@ -153,7 +159,32 @@ def search_data(df, search_input, search_type, selected_year):
         st.error(f"搜索出错：{str(e)}")
         return pd.DataFrame()
 
-# ===================== 结果展示函数 =====================
+# ===================== 新增：绘制趋势图函数 =====================
+def plot_trend_chart(result_df):
+    # 如果查询结果包含多家公司，按公司分组绘图
+    companies = result_df['企业名称'].unique()
+    plt.figure(figsize=(12, 6))
+    
+    for company in companies:
+        company_data = result_df[result_df['企业名称'] == company].sort_values('年份')
+        sns.lineplot(
+            x='年份', 
+            y='数字化转型指数', 
+            data=company_data,
+            marker='o',  # 数据点标记
+            label=company,
+            linewidth=2
+        )
+    
+    plt.title('数字化转型指数趋势（1999-2023）', fontsize=15)
+    plt.xlabel('年份', fontsize=12)
+    plt.ylabel('数字化转型指数', fontsize=12)
+    plt.xticks(rotation=45)
+    plt.legend(title='企业名称', bbox_to_anchor=(1.05, 1), loc='upper left')  # 图例放在右侧
+    plt.tight_layout()  # 自动调整布局
+    return plt
+
+# ===================== 结果展示函数（已添加图表展示） =====================
 def display_results(result_df, search_input, selected_year):
     if result_df.empty:
         st.warning("未找到匹配数据！示例：600008（首创股份）")
@@ -174,11 +205,18 @@ def display_results(result_df, search_input, selected_year):
     with col3:
         st.metric("最低指数", f"{result_df['数字化转型指数'].min():.2f}")
     
-    # 详细表格（移除use_container_width参数，用CSS实现自适应）
+    # 新增：显示趋势折线图（仅当查询全部年份时显示，单一年份无趋势）
+    if selected_year == "全部年份":
+        st.subheader("📈 数字化转型指数趋势图")
+        fig = plot_trend_chart(result_df)
+        st.pyplot(fig)
+        plt.close()  # 关闭图表释放资源
+    
+    # 详细表格
     st.subheader("详细数据")
     display_df = result_df.copy().reset_index(drop=True)
     display_df.index = display_df.index + 1
-    st.dataframe(display_df[['股票代码', '企业名称', '年份', '数字化转型指数']])  # 删掉use_container_width=True
+    st.dataframe(display_df[['股票代码', '企业名称', '年份', '数字化转型指数']])
     
     # CSV下载
     csv_data = display_df[['股票代码', '企业名称', '年份', '数字化转型指数']].to_csv(index=False, encoding='utf-8-sig')
@@ -284,9 +322,8 @@ def main():
         st.subheader("💡 数据示例（前10条）")
         sample_df = df.head(10).copy()
         sample_df.index = sample_df.index + 1
-        st.dataframe(sample_df[['股票代码', '企业名称', '年份', '数字化转型指数']])  # 删掉use_container_width=True
+        st.dataframe(sample_df[['股票代码', '企业名称', '年份', '数字化转型指数']])
         st.info("请在左侧边栏输入查询条件，点击「执行查询」！")
 
 if __name__ == "__main__":
-
     main()
