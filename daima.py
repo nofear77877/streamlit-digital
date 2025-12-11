@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import warnings
-import plotly.express as px  # 改用Plotly绘图（解决中文+交互问题）
+import plotly.express as px
 warnings.filterwarnings('ignore')
 
 # ===================== 页面基础配置 =====================
@@ -73,7 +73,7 @@ def load_basic_css():
     """, unsafe_allow_html=True)
 
 # ===================== 数据加载函数 =====================
-@st.cache_data(ttl=3600, show_spinner="正在加载数据...")  # 改用新缓存装饰器
+@st.cache_data(ttl=3600, show_spinner="正在加载数据...")
 def load_data():
     try:
         file_path = '1999-2023年数字化转型指数汇总.csv' 
@@ -131,21 +131,22 @@ def search_data(df, search_input, search_type, selected_year):
         if selected_year != "全部年份":
             year_filtered_df = year_filtered_df[year_filtered_df['年份'] == int(selected_year)]
         
-        return result_df, year_filtered_df  # 返回原始结果（所有年份）和筛选后结果
+        return result_df, year_filtered_df
     except Exception as e:
         st.error(f"搜索出错：{str(e)}")
         return pd.DataFrame(), pd.DataFrame()
 
-# ===================== 绘制趋势图函数（Plotly，天然支持中文） =====================
+# ===================== 绘制趋势图函数（修复标题拼接错误） =====================
 def plot_trend_chart(full_result_df, selected_year):
-    # 处理年份显示：如果选单一年份，也显示该年份在趋势中的位置
+    # 关键修复：将selected_year转为字符串再拼接
+    title_suffix = f"|{str(selected_year)}年" if selected_year != "全部年份" else ""
     fig = px.line(
         full_result_df,
         x='年份',
         y='数字化转型指数',
         color='企业名称',
-        markers=True,  # 显示数据点
-        title=f'数字化转型指数趋势（1999-2023）{"|"+selected_year if selected_year!="全部年份" else ""}',
+        markers=True,
+        title=f'数字化转型指数趋势（1999-2023）{title_suffix}',  # 修复拼接错误
         labels={
             '年份': '年份',
             '数字化转型指数': '数字化转型指数',
@@ -157,21 +158,19 @@ def plot_trend_chart(full_result_df, selected_year):
     if selected_year != "全部年份":
         target_year = int(selected_year)
         for trace in fig.data:
-            # 找到该企业在目标年份的数据点
             year_idx = full_result_df[(full_result_df['企业名称'] == trace.name) & (full_result_df['年份'] == target_year)].index
             if len(year_idx) > 0:
                 idx = year_idx[0]
                 fig.add_annotation(
                     x=target_year,
                     y=full_result_df.loc[idx, '数字化转型指数'],
-                    text=f'{selected_year}年: {full_result_df.loc[idx, "数字化转型指数"]}',
+                    text=f'{target_year}年: {full_result_df.loc[idx, "数字化转型指数"]}',
                     showarrow=True,
                     arrowhead=2,
                     ax=0,
                     ay=-30
                 )
     
-    # 调整布局（中文自动支持）
     fig.update_layout(
         width=800,
         height=500,
@@ -185,13 +184,11 @@ def display_results(full_result_df, year_filtered_df, search_input, selected_yea
         st.warning("未找到匹配数据！示例：600008（首创股份）")
         return
     
-    # 基础统计
     total = len(year_filtered_df)
     companies = year_filtered_df['股票代码'].nunique()
     year_text = selected_year if selected_year != "全部年份" else f"{full_result_df['年份'].min()}-{full_result_df['年份'].max()}"
     st.success(f"搜索结果 | {total:,} 条 | {companies} 家公司 | 年份：{year_text}")
     
-    # 关键指标
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("平均指数", f"{year_filtered_df['数字化转型指数'].mean():.2f}")
@@ -200,18 +197,15 @@ def display_results(full_result_df, year_filtered_df, search_input, selected_yea
     with col3:
         st.metric("最低指数", f"{year_filtered_df['数字化转型指数'].min():.2f}")
     
-    # 显示趋势折线图（**任意年份都显示**）
     st.subheader("📈 数字化转型指数趋势图")
     fig = plot_trend_chart(full_result_df, selected_year)
-    st.plotly_chart(fig)  # Plotly图表直接显示
+    st.plotly_chart(fig)
     
-    # 详细表格
     st.subheader("详细数据")
     display_df = year_filtered_df.copy().reset_index(drop=True)
     display_df.index = display_df.index + 1
     st.dataframe(display_df[['股票代码', '企业名称', '年份', '数字化转型指数']])
     
-    # CSV下载
     csv_data = display_df[['股票代码', '企业名称', '年份', '数字化转型指数']].to_csv(index=False, encoding='utf-8-sig')
     st.download_button(
         label="下载CSV数据",
@@ -224,12 +218,10 @@ def display_results(full_result_df, year_filtered_df, search_input, selected_yea
 def main():
     load_basic_css()
     
-    # 页面标题
     st.title("📊 上市公司数字化转型指数查询系统")
     st.markdown("### 📅 1999-2023年 | 📌 股票代码/企业名称查询")
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
     
-    # 加载数据
     data_result = load_data()
     if data_result["status"] == "error":
         st.error(data_result["msg"])
@@ -238,19 +230,16 @@ def main():
         st.info(data_result["msg"])
         df = data_result["data"]
     
-    # 侧边栏
     with st.sidebar:
         st.header("🔍 查询设置")
         st.markdown('<hr class="divider" style="margin:0.5rem 0;">', unsafe_allow_html=True)
         
-        # 搜索类型
         st.session_state.search_type = st.radio(
             "查询方式",
             ["股票代码", "企业名称"],
             index=0 if st.session_state.search_type == "股票代码" else 1
         )
         
-        # 输入框
         if st.session_state.search_type == "股票代码":
             st.session_state.search_input = st.text_input(
                 "股票代码",
@@ -267,17 +256,15 @@ def main():
         
         st.markdown('<hr class="divider" style="margin:0.5rem 0;">', unsafe_allow_html=True)
         
-        # 年份选择
-        year_options = ["全部年份"] + sorted(df['年份'].unique())
+        year_options = ["全部年份"] + sorted(df['年份'].unique().astype(str))  # 年份转为字符串
         try:
-            year_index = year_options.index(st.session_state.selected_year)
+            year_index = year_options.index(str(st.session_state.selected_year))
         except ValueError:
             year_index = 0
         st.session_state.selected_year = st.selectbox("查询年份", year_options, index=year_index)
         
         st.markdown('<hr class="divider" style="margin:0.5rem 0;">', unsafe_allow_html=True)
         
-        # 按钮
         col_btn1, col_btn2 = st.columns(2)
         with col_btn1:
             execute_search = st.button("执行查询")
@@ -288,7 +275,6 @@ def main():
                 st.session_state.search_results = None
                 st.info("已重置！")
     
-    # 执行查询
     if execute_search:
         if not st.session_state.search_input.strip():
             st.warning("请输入查询内容！")
@@ -303,7 +289,6 @@ def main():
             st.session_state.year_filtered = year_filtered_df
             display_results(full_result_df, year_filtered_df, st.session_state.search_input, st.session_state.selected_year)
     
-    # 历史结果
     elif st.session_state.get('full_result') is not None:
         display_results(
             st.session_state.full_result,
@@ -312,7 +297,6 @@ def main():
             st.session_state.selected_year
         )
     
-    # 示例数据
     else:
         st.subheader("💡 数据示例（前10条）")
         sample_df = df.head(10).copy()
