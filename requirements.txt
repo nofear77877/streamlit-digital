@@ -1,3 +1,5 @@
 streamlit
 pandas
 openpyxl
+matplotlib  # 新增：绘图基础库
+seaborn    # 新增：美化图表库
