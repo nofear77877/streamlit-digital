@@ -81,7 +81,7 @@ def load_basic_css():
 def load_data():
     try:
         # ========== 请修改为你的文件实际路径 ==========
-        file_path = 'C:/42306321/1999-2023年数字化转型指数汇总.csv' 
+        file_path = '1999-2023年数字化转型指数汇总.csv' 
         
         if not os.path.exists(file_path):
             return {
@@ -288,4 +288,5 @@ def main():
         st.info("请在左侧边栏输入查询条件，点击「执行查询」！")
 
 if __name__ == "__main__":
+
     main()
